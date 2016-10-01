@@ -1,11 +1,11 @@
 """Helpers for config validation using voluptuous."""
+from collections import OrderedDict
 from datetime import timedelta
 import os
 from urllib.parse import urlparse
 
-from typing import Any, Union, TypeVar, Callable, Sequence, List, Dict
+from typing import Any, Union, TypeVar, Callable, Sequence, Dict
 
-import jinja2
 import voluptuous as vol
 
 from homeassistant.loader import get_platform
@@ -15,8 +15,10 @@ from homeassistant.const import (
     CONF_CONDITION, CONF_BELOW, CONF_ABOVE, SUN_EVENT_SUNSET,
     SUN_EVENT_SUNRISE, CONF_UNIT_SYSTEM_IMPERIAL, CONF_UNIT_SYSTEM_METRIC)
 from homeassistant.core import valid_entity_id
+from homeassistant.exceptions import TemplateError
 import homeassistant.util.dt as dt_util
 from homeassistant.util import slugify
+from homeassistant.helpers import template as template_helper
 
 # pylint: disable=invalid-name
 
@@ -79,7 +81,7 @@ def isfile(value: Any) -> str:
     return file_in
 
 
-def ensure_list(value: Union[T, Sequence[T]]) -> List[T]:
+def ensure_list(value: Union[T, Sequence[T]]) -> Sequence[T]:
     """Wrap value in list if it is not one."""
     return value if isinstance(value, list) else [value]
 
@@ -92,7 +94,7 @@ def entity_id(value: Any) -> str:
     raise vol.Invalid('Entity ID {} is an invalid entity id'.format(value))
 
 
-def entity_ids(value: Union[str, Sequence]) -> List[str]:
+def entity_ids(value: Union[str, Sequence]) -> Sequence[str]:
     """Validate Entity IDs."""
     if value is None:
         raise vol.Invalid('Entity IDs can not be None')
@@ -100,6 +102,11 @@ def entity_ids(value: Union[str, Sequence]) -> List[str]:
         value = [ent_id.strip() for ent_id in value.split(',')]
 
     return [entity_id(ent_id) for ent_id in value]
+
+
+def enum(enumClass):
+    """Create validator for specified enum."""
+    return vol.All(vol.In(enumClass.__members__), enumClass.__getitem__)
 
 
 def icon(value):
@@ -233,14 +240,15 @@ def template(value):
     """Validate a jinja2 template."""
     if value is None:
         raise vol.Invalid('template value is None')
-    if isinstance(value, (list, dict)):
+    elif isinstance(value, (list, dict, template_helper.Template)):
         raise vol.Invalid('template value should be a string')
 
-    value = str(value)
+    value = template_helper.Template(str(value))
+
     try:
-        jinja2.Environment().parse(value)
+        value.ensure_valid()
         return value
-    except jinja2.exceptions.TemplateSyntaxError as ex:
+    except TemplateError as ex:
         raise vol.Invalid('invalid template ({})'.format(ex))
 
 
@@ -288,6 +296,27 @@ def url(value: Any) -> str:
         return vol.Schema(vol.Url())(url_in)
 
     raise vol.Invalid('invalid url')
+
+
+def ordered_dict(value_validator, key_validator=match_all):
+    """Validate an ordered dict validator that maintains ordering.
+
+    value_validator will be applied to each value of the dictionary.
+    key_validator (optional) will be applied to each key of the dictionary.
+    """
+    item_validator = vol.Schema({key_validator: value_validator})
+
+    def validator(value):
+        """Validate ordered dict."""
+        config = OrderedDict()
+
+        for key, val in value.items():
+            v_res = item_validator({key: val})
+            config.update(v_res)
+
+        return config
+
+    return validator
 
 
 # Validator helpers

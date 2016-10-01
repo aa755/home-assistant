@@ -9,7 +9,6 @@ import voluptuous as vol
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant  # NOQA
 from homeassistant.exceptions import TemplateError
-from homeassistant.helpers import template
 from homeassistant.loader import get_component
 import homeassistant.helpers.config_validation as cv
 
@@ -49,8 +48,8 @@ def call_from_config(hass, config, blocking=False, variables=None,
         domain_service = config[CONF_SERVICE]
     else:
         try:
-            domain_service = template.render(
-                hass, config[CONF_SERVICE_TEMPLATE], variables)
+            config[CONF_SERVICE_TEMPLATE].hass = hass
+            domain_service = config[CONF_SERVICE_TEMPLATE].render(variables)
             domain_service = cv.service(domain_service)
         except TemplateError as ex:
             _LOGGER.error('Error rendering service name template: %s', ex)
@@ -63,21 +62,18 @@ def call_from_config(hass, config, blocking=False, variables=None,
     domain, service_name = domain_service.split('.', 1)
     service_data = dict(config.get(CONF_SERVICE_DATA, {}))
 
-    def _data_template_creator(value):
-        """Recursive template creator helper function."""
-        if isinstance(value, list):
-            for idx, element in enumerate(value):
-                value[idx] = _data_template_creator(element)
-            return value
-        if isinstance(value, dict):
-            for key, element in value.items():
-                value[key] = _data_template_creator(element)
-            return value
-        return template.render(hass, value, variables)
-
     if CONF_SERVICE_DATA_TEMPLATE in config:
-        for key, value in config[CONF_SERVICE_DATA_TEMPLATE].items():
-            service_data[key] = _data_template_creator(value)
+        def _data_template_creator(value):
+            """Recursive template creator helper function."""
+            if isinstance(value, list):
+                return [_data_template_creator(item) for item in value]
+            elif isinstance(value, dict):
+                return {key: _data_template_creator(item)
+                        for key, item in value.items()}
+            value.hass = hass
+            return value.render(variables)
+        service_data.update(_data_template_creator(
+            config[CONF_SERVICE_DATA_TEMPLATE]))
 
     if CONF_SERVICE_ENTITY_ID in config:
         service_data[ATTR_ENTITY_ID] = config[CONF_SERVICE_ENTITY_ID]

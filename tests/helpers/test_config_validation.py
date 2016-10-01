@@ -1,4 +1,7 @@
+"""Test config validators."""
+from collections import OrderedDict
 from datetime import timedelta
+import enum
 import os
 import tempfile
 
@@ -300,7 +303,8 @@ def test_template():
     schema = vol.Schema(cv.template)
 
     for value in (None, '{{ partial_print }', '{% if True %}Hello', ['test']):
-        with pytest.raises(vol.MultipleInvalid):
+        with pytest.raises(vol.Invalid,
+                           message='{} not considered invalid'.format(value)):
             schema(value)
 
     for value in (
@@ -367,3 +371,67 @@ def test_has_at_least_one_key():
 
     for value in ({'beer': None}, {'soda': None}):
         schema(value)
+
+
+def test_ordered_dict_order():
+    """Test ordered_dict validator."""
+    schema = vol.Schema(cv.ordered_dict(int, cv.string))
+
+    val = OrderedDict()
+    val['first'] = 1
+    val['second'] = 2
+
+    validated = schema(val)
+
+    assert isinstance(validated, OrderedDict)
+    assert ['first', 'second'] == list(validated.keys())
+
+
+def test_ordered_dict_key_validator():
+    """Test ordered_dict key validator."""
+    schema = vol.Schema(cv.ordered_dict(cv.match_all, cv.string))
+
+    with pytest.raises(vol.Invalid):
+        schema({None: 1})
+
+    schema({'hello': 'world'})
+
+    schema = vol.Schema(cv.ordered_dict(cv.match_all, int))
+
+    with pytest.raises(vol.Invalid):
+        schema({'hello': 1})
+
+    schema({1: 'works'})
+
+
+def test_ordered_dict_value_validator():
+    """Test ordered_dict validator."""
+    schema = vol.Schema(cv.ordered_dict(cv.string))
+
+    with pytest.raises(vol.Invalid):
+        schema({'hello': None})
+
+    schema({'hello': 'world'})
+
+    schema = vol.Schema(cv.ordered_dict(int))
+
+    with pytest.raises(vol.Invalid):
+        schema({'hello': 'world'})
+
+    schema({'hello': 5})
+
+
+def test_enum():
+    """Test enum validator."""
+    class TestEnum(enum.Enum):
+        """Test enum."""
+
+        value1 = "Value 1"
+        value2 = "Value 2"
+
+    schema = vol.Schema(cv.enum(TestEnum))
+
+    with pytest.raises(vol.Invalid):
+        schema('value3')
+
+    TestEnum['value1']
