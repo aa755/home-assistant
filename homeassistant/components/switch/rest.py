@@ -43,6 +43,8 @@ def setup_platform(hass, config, add_devices_callback, discovery_info=None):
     body_off = config.get(CONF_BODY_OFF)
     is_on_template = config.get(CONF_VALUE_TEMPLATE)
     is_on_template.hass = hass
+    body_on.hass = hass
+    body_off.hass = hass
     timeout = config.get(CONF_TIMEOUT)
 
     try:
