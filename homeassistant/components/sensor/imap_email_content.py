@@ -130,8 +130,6 @@ class EmailReader:
 class EmailContentSensor(Entity):
     """Representation of an EMail sensor."""
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-instance-attributes
     def __init__(self,
                  hass,
                  email_reader,
@@ -161,7 +159,7 @@ class EmailContentSensor(Entity):
         return self._message
 
     @property
-    def state_attributes(self):
+    def device_state_attributes(self):
         """Return other state attributes for the message."""
         return self._state_attributes
 

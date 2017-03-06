@@ -67,7 +67,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the syslog notification service."""
     import syslog
 
@@ -78,11 +78,9 @@ def get_service(hass, config):
     return SyslogNotificationService(facility, option, priority)
 
 
-# pylint: disable=too-few-public-methods
 class SyslogNotificationService(BaseNotificationService):
     """Implement the syslog notification service."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, facility, option, priority):
         """Initialize the service."""
         self._facility = facility

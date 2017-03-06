@@ -101,7 +101,7 @@ def setup(hass, config):
         message = message.async_render()
         async_log_entry(hass, name, message, domain, entity_id)
 
-    hass.http.register_view(LogbookView(hass, config))
+    hass.http.register_view(LogbookView(config))
 
     register_built_in_panel(hass, 'logbook', 'Logbook',
                             'mdi:format-list-bulleted-type')
@@ -118,9 +118,8 @@ class LogbookView(HomeAssistantView):
     name = 'api:logbook'
     extra_urls = ['/api/logbook/{datetime}']
 
-    def __init__(self, hass, config):
+    def __init__(self, config):
         """Initilalize the logbook view."""
-        super().__init__(hass)
         self.config = config
 
     @asyncio.coroutine
@@ -140,13 +139,15 @@ class LogbookView(HomeAssistantView):
         def get_results():
             """Query DB for results."""
             events = recorder.get_model('Events')
-            query = recorder.query('Events').filter(
-                (events.time_fired > start_day) &
-                (events.time_fired < end_day))
+            query = recorder.query('Events').order_by(
+                events.time_fired).filter(
+                    (events.time_fired > start_day) &
+                    (events.time_fired < end_day))
             events = recorder.execute(query)
             return _exclude_events(events, self.config)
 
-        events = yield from self.hass.loop.run_in_executor(None, get_results)
+        events = yield from request.app['hass'].loop.run_in_executor(
+            None, get_results)
 
         return self.json(humanify(events))
 
@@ -154,7 +155,6 @@ class LogbookView(HomeAssistantView):
 class Entry(object):
     """A human readable version of the log."""
 
-    # pylint: disable=too-many-arguments, too-few-public-methods
     def __init__(self, when=None, name=None, message=None, domain=None,
                  entity_id=None):
         """Initialize the entry."""
@@ -182,7 +182,6 @@ def humanify(events):
      - if 2+ sensor updates in GROUP_BY_MINUTES, show last
      - if home assistant stop and start happen in same minute call it restarted
     """
-    # pylint: disable=too-many-branches
     # Group events in batches of GROUP_BY_MINUTES
     for _, g_events in groupby(
             events,
@@ -288,7 +287,6 @@ def humanify(events):
 
 def _exclude_events(events, config):
     """Get lists of excluded entities and platforms."""
-    # pylint: disable=too-many-branches
     excluded_entities = []
     excluded_domains = []
     included_entities = []
@@ -309,6 +307,10 @@ def _exclude_events(events, config):
         if event.event_type == EVENT_STATE_CHANGED:
             to_state = State.from_dict(event.data.get('new_state'))
             # Do not report on new entities
+            if event.data.get('old_state') is None:
+                continue
+
+            # Do not report on entity removal
             if not to_state:
                 continue
 
@@ -355,10 +357,10 @@ def _exclude_events(events, config):
     return filtered_events
 
 
+# pylint: disable=too-many-return-statements
 def _entry_message_from_state(domain, state):
     """Convert a state to a message for the logbook."""
     # We pass domain in so we don't have to split entity_id again
-    # pylint: disable=too-many-return-statements
     if domain == 'device_tracker':
         if state.state == STATE_NOT_HOME:
             return 'is away'

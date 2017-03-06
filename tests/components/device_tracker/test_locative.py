@@ -1,5 +1,4 @@
 """The tests the for Locative device tracker platform."""
-import time
 import unittest
 from unittest.mock import patch
 
@@ -10,7 +9,8 @@ import homeassistant.components.device_tracker as device_tracker
 import homeassistant.components.http as http
 from homeassistant.const import CONF_PLATFORM
 
-from tests.common import get_test_home_assistant, get_test_instance_port
+from tests.common import (
+    assert_setup_component, get_test_home_assistant, get_test_instance_port)
 
 SERVER_PORT = get_test_instance_port()
 HTTP_BASE_URL = "http://127.0.0.1:{}".format(SERVER_PORT)
@@ -26,11 +26,13 @@ def _url(data=None):
     return "{}{}locative?{}".format(HTTP_BASE_URL, const.URL_API, data)
 
 
-def setUpModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def setUpModule():
     """Initalize a Home Assistant server."""
-    global hass    # pylint: disable=invalid-name
+    global hass
 
     hass = get_test_home_assistant()
+    # http is not platform based, assert_setup_component not applicable
     bootstrap.setup_component(hass, http.DOMAIN, {
         http.DOMAIN: {
             http.CONF_SERVER_PORT: SERVER_PORT
@@ -38,14 +40,14 @@ def setUpModule():   # pylint: disable=invalid-name
     })
 
     # Set up device tracker
-    bootstrap.setup_component(hass, device_tracker.DOMAIN, {
-        device_tracker.DOMAIN: {
-            CONF_PLATFORM: 'locative'
-        }
-    })
+    with assert_setup_component(1, device_tracker.DOMAIN):
+        bootstrap.setup_component(hass, device_tracker.DOMAIN, {
+            device_tracker.DOMAIN: {
+                CONF_PLATFORM: 'locative'
+            }
+        })
 
     hass.start()
-    time.sleep(0.05)
 
 
 def tearDownModule():   # pylint: disable=invalid-name
@@ -103,6 +105,13 @@ class TestLocative(unittest.TestCase):
         # Test message
         copy = data.copy()
         copy['trigger'] = 'test'
+        req = requests.get(_url(copy))
+        self.assertEqual(200, req.status_code)
+
+        # Test message, no location
+        copy = data.copy()
+        copy['trigger'] = 'test'
+        del copy['id']
         req = requests.get(_url(copy))
         self.assertEqual(200, req.status_code)
 

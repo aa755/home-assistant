@@ -34,7 +34,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the Matrix notification service."""
     if not AUTH_TOKENS:
         load_token(hass.config.path(SESSION_FILE))
@@ -48,11 +48,9 @@ def get_service(hass, config):
     )
 
 
-# pylint: disable=too-few-public-methods
 class MatrixNotificationService(BaseNotificationService):
     """Wrapper for the MatrixNotificationClient."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, homeserver, default_room, verify_ssl,
                  username, password):
         """Buffer configuration data for send_message."""
@@ -94,7 +92,6 @@ def store_token(mx_id, token):
         handle.write(json.dumps(AUTH_TOKENS))
 
 
-# pylint: disable=too-many-locals, too-many-arguments
 def send_message(message, homeserver, target_rooms, verify_tls,
                  username, password):
     """Do everything thats necessary to send a message to a Matrix room."""

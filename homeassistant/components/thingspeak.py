@@ -1,38 +1,41 @@
-"""A component to submit data to thingspeak."""
+"""
+A component to submit data to thingspeak.
+
+For more details about this component, please refer to the documentation at
+https://home-assistant.io/components/thingspeak/
+"""
 import logging
 
-import voluptuous as vol
 from requests.exceptions import RequestException
+import voluptuous as vol
 
 from homeassistant.const import (
-    CONF_API_KEY, CONF_ID, CONF_WHITELIST,
-    STATE_UNAVAILABLE, STATE_UNKNOWN)
+    CONF_API_KEY, CONF_ID, CONF_WHITELIST, STATE_UNAVAILABLE, STATE_UNKNOWN)
 from homeassistant.helpers import state as state_helper
 import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.event as event
 
-REQUIREMENTS = ['thingspeak==0.4.0']
+REQUIREMENTS = ['thingspeak==0.4.1']
 
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = 'thingspeak'
+
 TIMEOUT = 5
 
-# Validate the config
 CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
         vol.Required(CONF_API_KEY): cv.string,
         vol.Required(CONF_ID): int,
         vol.Required(CONF_WHITELIST): cv.string
         }),
-    }, extra=vol.ALLOW_EXTRA)
+}, extra=vol.ALLOW_EXTRA)
 
 
 def setup(hass, config):
-    """Setup the thingspeak environment."""
+    """Set up the Thingspeak environment."""
     import thingspeak
 
-    # Read out config values
     conf = config[DOMAIN]
     api_key = conf.get(CONF_API_KEY)
     channel_id = conf.get(CONF_ID)
@@ -40,7 +43,7 @@ def setup(hass, config):
 
     try:
         channel = thingspeak.Channel(
-            channel_id, api_key=api_key, timeout=TIMEOUT)
+            channel_id, write_key=api_key, timeout=TIMEOUT)
         channel.get()
     except RequestException:
         _LOGGER.error("Error while accessing the ThingSpeak channel. "
@@ -49,7 +52,7 @@ def setup(hass, config):
         return False
 
     def thingspeak_listener(entity_id, old_state, new_state):
-        """Listen for new events and send them to thingspeak."""
+        """Listen for new events and send them to Thingspeak."""
         if new_state is None or new_state.state in (
                 STATE_UNKNOWN, '', STATE_UNAVAILABLE):
             return
@@ -63,8 +66,7 @@ def setup(hass, config):
             channel.update({'field1': _state})
         except RequestException:
             _LOGGER.error(
-                'Error while sending value "%s" to Thingspeak',
-                _state)
+                "Error while sending value '%s' to Thingspeak", _state)
 
     event.track_state_change(hass, entity, thingspeak_listener)
 

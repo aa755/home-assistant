@@ -58,11 +58,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices(devices)
 
 
-# pylint: disable=too-many-instance-attributes
 class OctoPrintBinarySensor(BinarySensorDevice):
     """Representation an OctoPrint binary sensor."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, api, condition, sensor_type, sensor_name, unit,
                  endpoint, group, tool=None):
         """Initialize a new OctoPrint sensor."""
@@ -101,8 +99,8 @@ class OctoPrintBinarySensor(BinarySensorDevice):
             return STATE_OFF
 
     @property
-    def sensor_class(self):
-        """Return the class of this sensor, from SENSOR_CLASSES."""
+    def device_class(self):
+        """Return the class of this sensor, from DEVICE_CLASSES."""
         return None
 
     def update(self):

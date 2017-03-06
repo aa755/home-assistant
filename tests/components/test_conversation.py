@@ -1,8 +1,9 @@
 """The tests for the Conversation component."""
-# pylint: disable=too-many-public-methods,protected-access
+# pylint: disable=protected-access
 import unittest
 from unittest.mock import patch
 
+from homeassistant.core import callback
 from homeassistant.bootstrap import setup_component
 import homeassistant.components as core_components
 from homeassistant.components import conversation
@@ -15,10 +16,11 @@ from tests.common import get_test_home_assistant, assert_setup_component
 class TestConversation(unittest.TestCase):
     """Test the conversation component."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    # pylint: disable=invalid-name
+    def setUp(self):
         """Setup things to be run when tests are started."""
         self.ent_id = 'light.kitchen_lights'
-        self.hass = get_test_home_assistant(3)
+        self.hass = get_test_home_assistant()
         self.hass.states.set(self.ent_id, 'on')
         self.assertTrue(run_coroutine_threadsafe(
             core_components.async_setup(self.hass, {}), self.hass.loop
@@ -28,7 +30,8 @@ class TestConversation(unittest.TestCase):
                 conversation.DOMAIN: {}
             }))
 
-    def tearDown(self):  # pylint: disable=invalid-name
+    # pylint: disable=invalid-name
+    def tearDown(self):
         """Stop everything that was started."""
         self.hass.stop()
 
@@ -36,7 +39,9 @@ class TestConversation(unittest.TestCase):
         """Setup and perform good turn on requests."""
         calls = []
 
+        @callback
         def record_call(service):
+            """Recorder for a call."""
             calls.append(service)
 
         self.hass.services.register('light', 'turn_on', record_call)
@@ -54,7 +59,9 @@ class TestConversation(unittest.TestCase):
         """Setup and perform good turn off requests."""
         calls = []
 
+        @callback
         def record_call(service):
+            """Recorder for a call."""
             calls.append(service)
 
         self.hass.services.register('light', 'turn_off', record_call)

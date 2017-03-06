@@ -15,8 +15,8 @@ class TestLightRfxtrx(unittest.TestCase):
 
     def setUp(self):
         """Setup things to be run when tests are started."""
-        self.hass = get_test_home_assistant(0)
-        self.hass.config.components = ['rfxtrx']
+        self.hass = get_test_home_assistant()
+        self.hass.config.components = set(['rfxtrx'])
 
     def tearDown(self):
         """Stop everything that was started."""

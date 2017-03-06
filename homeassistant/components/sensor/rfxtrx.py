@@ -29,7 +29,6 @@ PLATFORM_SCHEMA = vol.Schema({
 
 def setup_platform(hass, config, add_devices_callback, discovery_info=None):
     """Setup the RFXtrx platform."""
-    # pylint: disable=too-many-locals
     from RFXtrx import SensorEvent
     sensors = []
     for packet_id, entity_info in config[CONF_DEVICES].items():
@@ -125,7 +124,7 @@ class RfxtrxSensor(Entity):
     @property
     def name(self):
         """Get the name of the sensor."""
-        return self._name
+        return "{} {}".format(self._name, self.data_type)
 
     @property
     def device_state_attributes(self):

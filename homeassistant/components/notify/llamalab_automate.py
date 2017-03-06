@@ -20,13 +20,13 @@ CONF_DEVICE = 'device'
 _RESOURCE = 'https://llamalab.com/automate/cloud/message'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_API_KEY):  cv.string,
-    vol.Required(CONF_TO):  cv.string,
-    vol.Optional(CONF_DEVICE):  cv.string,
+    vol.Required(CONF_API_KEY): cv.string,
+    vol.Required(CONF_TO): cv.string,
+    vol.Optional(CONF_DEVICE): cv.string,
 })
 
 
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the LlamaLab Automate notification service."""
     secret = config.get(CONF_API_KEY)
     recipient = config.get(CONF_TO)
@@ -35,7 +35,6 @@ def get_service(hass, config):
     return AutomateNotificationService(secret, recipient, device)
 
 
-# pylint: disable=too-few-public-methods
 class AutomateNotificationService(BaseNotificationService):
     """Implement the notification service for LlamaLab Automate."""
 

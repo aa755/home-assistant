@@ -71,7 +71,7 @@ def get_cipher():
     return (KEYLEN, decrypt)
 
 
-def setup_scanner(hass, config, see):
+def setup_scanner(hass, config, see, discovery_info=None):
     """Set up an OwnTracks tracker."""
     max_gps_accuracy = config.get(CONF_MAX_GPS_ACCURACY)
     waypoint_import = config.get(CONF_WAYPOINT_IMPORT)
@@ -114,10 +114,9 @@ def setup_scanner(hass, config, see):
                             'for topic %s.', topic)
             return None
 
+    # pylint: disable=too-many-return-statements
     def validate_payload(topic, payload, data_type):
         """Validate the OwnTracks payload."""
-        # pylint: disable=too-many-return-statements
-
         try:
             data = json.loads(payload)
         except ValueError:
@@ -143,12 +142,12 @@ def setup_scanner(hass, config, see):
             return data
         if max_gps_accuracy is not None and \
                 convert(data.get('acc'), float, 0.0) > max_gps_accuracy:
-            _LOGGER.warning('Ignoring %s update because expected GPS '
-                            'accuracy %s is not met: %s',
-                            data_type, max_gps_accuracy, payload)
+            _LOGGER.info('Ignoring %s update because expected GPS '
+                         'accuracy %s is not met: %s',
+                         data_type, max_gps_accuracy, payload)
             return None
         if convert(data.get('acc'), float, 1.0) == 0.0:
-            _LOGGER.warning('Ignoring %s update because GPS accuracy'
+            _LOGGER.warning('Ignoring %s update because GPS accuracy '
                             'is zero: %s',
                             data_type, payload)
             return None
@@ -191,7 +190,7 @@ def setup_scanner(hass, config, see):
             return
         # OwnTracks uses - at the start of a beacon zone
         # to switch on 'hold mode' - ignore this
-        location = slugify(data['desc'].lstrip("-"))
+        location = data['desc'].lstrip("-")
         if location.lower() == 'home':
             location = STATE_HOME
 
@@ -199,7 +198,7 @@ def setup_scanner(hass, config, see):
 
         def enter_event():
             """Execute enter event."""
-            zone = hass.states.get("zone.{}".format(location))
+            zone = hass.states.get("zone.{}".format(slugify(location)))
             with LOCK:
                 if zone is None and data.get('t') == 'b':
                     # Not a HA zone, and a beacon so assume mobile
@@ -228,7 +227,8 @@ def setup_scanner(hass, config, see):
 
                 if new_region:
                     # Exit to previous region
-                    zone = hass.states.get("zone.{}".format(new_region))
+                    zone = hass.states.get(
+                        "zone.{}".format(slugify(new_region)))
                     _set_gps_from_zone(kwargs, new_region, zone)
                     _LOGGER.info("Exit to %s", new_region)
                     see(**kwargs)
@@ -248,7 +248,7 @@ def setup_scanner(hass, config, see):
                         if (max_gps_accuracy is not None and
                                 data['acc'] > max_gps_accuracy):
                             valid_gps = False
-                            _LOGGER.warning(
+                            _LOGGER.info(
                                 'Ignoring GPS in region exit because expected '
                                 'GPS accuracy %s is not met: %s',
                                 max_gps_accuracy, payload)

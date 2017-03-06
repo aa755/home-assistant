@@ -11,8 +11,8 @@ import requests
 
 import voluptuous as vol
 
-from homeassistant.components.device_tracker import (PLATFORM_SCHEMA,
-                                                     ATTR_ATTRIBUTES)
+from homeassistant.components.device_tracker import (
+    PLATFORM_SCHEMA, ATTR_ATTRIBUTES)
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import track_utc_time_change
@@ -49,7 +49,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 })
 
 
-def setup_scanner(hass, config: dict, see):
+def setup_scanner(hass, config: dict, see, discovery_info=None):
     """Validate the configuration and return an Automatic scanner."""
     try:
         AutomaticDeviceScanner(hass, config, see)
@@ -60,8 +60,6 @@ def setup_scanner(hass, config: dict, see):
     return True
 
 
-# pylint: disable=too-many-instance-attributes
-# pylint: disable=too-few-public-methods
 class AutomaticDeviceScanner(object):
     """A class representing an Automatic device."""
 

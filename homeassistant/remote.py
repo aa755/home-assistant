@@ -40,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 class APIStatus(enum.Enum):
     """Represent API status."""
 
-    # pylint: disable=no-init,invalid-name,too-few-public-methods
+    # pylint: disable=no-init, invalid-name
     OK = "ok"
     INVALID_PASSWORD = "invalid_password"
     CANNOT_CONNECT = "cannot_connect"
@@ -54,17 +54,23 @@ class APIStatus(enum.Enum):
 class API(object):
     """Object to pass around Home Assistant API location and credentials."""
 
-    # pylint: disable=too-few-public-methods
     def __init__(self, host: str, api_password: Optional[str]=None,
-                 port: Optional[int]=None, use_ssl: bool=False) -> None:
+                 port: Optional[int]=SERVER_PORT, use_ssl: bool=False) -> None:
         """Initalize the API."""
         self.host = host
-        self.port = port or SERVER_PORT
+        self.port = port
         self.api_password = api_password
-        if use_ssl:
-            self.base_url = "https://{}:{}".format(host, self.port)
+
+        if host.startswith(("http://", "https://")):
+            self.base_url = host
+        elif use_ssl:
+            self.base_url = "https://{}".format(host)
         else:
-            self.base_url = "http://{}:{}".format(host, self.port)
+            self.base_url = "http://{}".format(host)
+
+        if port is not None:
+            self.base_url += ':{}'.format(port)
+
         self.status = None
         self._headers = {
             HTTP_HEADER_CONTENT_TYPE: CONTENT_TYPE_JSON,
@@ -107,14 +113,14 @@ class API(object):
 
     def __repr__(self) -> str:
         """Return the representation of the API."""
-        return "API({}, {}, {})".format(
-            self.host, self.api_password, self.port)
+        return "<API({}, password: {})>".format(
+            self.base_url, 'yes' if self.api_password is not None else 'no')
 
 
 class HomeAssistant(ha.HomeAssistant):
     """Home Assistant that forwards work."""
 
-    # pylint: disable=super-init-not-called,too-many-instance-attributes
+    # pylint: disable=super-init-not-called
     def __init__(self, remote_api, local_api=None, loop=None):
         """Initalize the forward instance."""
         if not remote_api.validate_api():
@@ -127,18 +133,18 @@ class HomeAssistant(ha.HomeAssistant):
         self.loop = loop or asyncio.get_event_loop()
         self.executor = ThreadPoolExecutor(max_workers=5)
         self.loop.set_default_executor(self.executor)
-        self.loop.set_exception_handler(self._async_exception_handler)
-        self.pool = ha.create_worker_pool()
+        self.loop.set_exception_handler(ha.async_loop_exception_handler)
+        self._pending_tasks = []
+        self._pending_sheduler = None
 
         self.bus = EventBus(remote_api, self)
-        self.services = ha.ServiceRegistry(self.bus, self.add_job, self.loop)
+        self.services = ha.ServiceRegistry(self)
         self.states = StateMachine(self.bus, self.loop, self.remote_api)
         self.config = ha.Config()
         # This is a dictionary that any component can store any data on.
         self.data = {}
         self.state = ha.CoreState.not_running
         self.exit_code = None
-        self._websession = None
         self.config.api = local_api
 
     def start(self):
@@ -150,7 +156,8 @@ class HomeAssistant(ha.HomeAssistant):
                     'Unable to setup local API to receive events')
 
         self.state = ha.CoreState.starting
-        ha._async_create_timer(self)  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        ha._async_create_timer(self)
 
         self.bus.fire(ha.EVENT_HOMEASSISTANT_START,
                       origin=ha.EventOrigin.remote)
@@ -176,8 +183,6 @@ class HomeAssistant(ha.HomeAssistant):
         self.bus.fire(ha.EVENT_HOMEASSISTANT_STOP,
                       origin=ha.EventOrigin.remote)
 
-        self.pool.stop()
-
         # Disconnect master event forwarding
         disconnect_remote_events(self.remote_api, self.config.api)
         self.state = ha.CoreState.not_running
@@ -186,7 +191,6 @@ class HomeAssistant(ha.HomeAssistant):
 class EventBus(ha.EventBus):
     """EventBus implementation that forwards fire_event to remote API."""
 
-    # pylint: disable=too-few-public-methods
     def __init__(self, api, hass):
         """Initalize the eventbus."""
         super().__init__(hass)
@@ -300,7 +304,7 @@ class StateMachine(ha.StateMachine):
 class JSONEncoder(json.JSONEncoder):
     """JSONEncoder that supports Home Assistant objects."""
 
-    # pylint: disable=too-few-public-methods,method-hidden
+    # pylint: disable=method-hidden
     def default(self, obj):
         """Convert Home Assistant objects.
 
@@ -308,6 +312,8 @@ class JSONEncoder(json.JSONEncoder):
         """
         if isinstance(obj, datetime):
             return obj.isoformat()
+        elif isinstance(obj, set):
+            return list(obj)
         elif hasattr(obj, 'as_dict'):
             return obj.as_dict()
 
@@ -544,7 +550,13 @@ def get_config(api):
     try:
         req = api(METHOD_GET, URL_API_CONFIG)
 
-        return req.json() if req.status_code == 200 else {}
+        if req.status_code != 200:
+            return {}
+
+        result = req.json()
+        if 'components' in result:
+            result['components'] = set(result['components'])
+        return result
 
     except (HomeAssistantError, ValueError):
         # ValueError if req.json() can't parse the JSON

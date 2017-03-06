@@ -131,7 +131,6 @@ def async_or_from_config(config: ConfigType, config_validation: bool=True):
 or_from_config = _threaded_factory(async_or_from_config)
 
 
-# pylint: disable=too-many-arguments
 def numeric_state(hass: HomeAssistant, entity, below=None, above=None,
                   value_template=None, variables=None):
     """Test a numeric state condition."""
@@ -200,7 +199,10 @@ numeric_state_from_config = _threaded_factory(async_numeric_state_from_config)
 
 
 def state(hass, entity, req_state, for_period=None):
-    """Test if state matches requirements."""
+    """Test if state matches requirements.
+
+    Async friendly.
+    """
     if isinstance(entity, str):
         entity = hass.states.get(entity)
 
@@ -358,7 +360,7 @@ def time_from_config(config, config_validation=True):
 def zone(hass, zone_ent, entity):
     """Test if zone-condition matches.
 
-    Can be run async.
+    Async friendly.
     """
     if isinstance(zone_ent, str):
         zone_ent = hass.states.get(zone_ent)

@@ -6,15 +6,16 @@ This will return a request id that has to be used for future calls.
 A callback has to be provided to `request_config` which will be called when
 the user has submitted configuration information.
 """
+import asyncio
 import logging
 
 from homeassistant.const import EVENT_TIME_CHANGED, ATTR_FRIENDLY_NAME, \
     ATTR_ENTITY_PICTURE
 from homeassistant.helpers.entity import generate_entity_id
 
-_INSTANCES = {}
 _LOGGER = logging.getLogger(__name__)
 _REQUESTS = {}
+_KEY_INSTANCE = 'configurator'
 
 ATTR_CONFIGURE_ID = 'configure_id'
 ATTR_DESCRIPTION = 'description'
@@ -34,7 +35,6 @@ STATE_CONFIGURE = 'configure'
 STATE_CONFIGURED = 'configured'
 
 
-# pylint: disable=too-many-arguments
 def request_config(
         hass, name, callback, description=None, description_image=None,
         submit_caption=None, fields=None, link_name=None, link_url=None,
@@ -73,22 +73,20 @@ def request_done(request_id):
         pass
 
 
-def setup(hass, config):
+@asyncio.coroutine
+def async_setup(hass, config):
     """Setup the configurator component."""
     return True
 
 
 def _get_instance(hass):
     """Get an instance per hass object."""
-    try:
-        return _INSTANCES[hass]
-    except KeyError:
-        _INSTANCES[hass] = Configurator(hass)
+    instance = hass.data.get(_KEY_INSTANCE)
 
-        if DOMAIN not in hass.config.components:
-            hass.config.components.append(DOMAIN)
+    if instance is None:
+        instance = hass.data[_KEY_INSTANCE] = Configurator(hass)
 
-        return _INSTANCES[hass]
+    return instance
 
 
 class Configurator(object):
@@ -102,7 +100,6 @@ class Configurator(object):
         hass.services.register(
             DOMAIN, SERVICE_CONFIGURE, self.handle_service_call)
 
-    # pylint: disable=too-many-arguments
     def request_config(
             self, name, callback,
             description, description_image, submit_caption,

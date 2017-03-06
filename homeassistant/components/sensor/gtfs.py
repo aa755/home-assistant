@@ -37,11 +37,10 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ORIGIN): cv.string,
     vol.Required(CONF_DESTINATION): cv.string,
     vol.Required(CONF_DATA): cv.string,
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_NAME): cv.string,
 })
 
 
-# pylint: disable=too-many-locals
 def get_next_departure(sched, start_station_id, end_station_id):
     """Get the next departure for the given schedule."""
     origin_station = sched.stops_by_id(start_station_id)[0]
@@ -95,6 +94,9 @@ def get_next_departure(sched, start_station_id, end_station_id):
     item = {}
     for row in result:
         item = row
+
+    if item == {}:
+        return None
 
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     departure_time_string = '{} {}'.format(today, item[2])
@@ -176,7 +178,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([GTFSDepartureSensor(gtfs, name, origin, destination)])
 
 
-# pylint: disable=too-many-instance-attributes,too-few-public-methods
 class GTFSDepartureSensor(Entity):
     """Implementation of an GTFS departures sensor."""
 
@@ -223,6 +224,13 @@ class GTFSDepartureSensor(Entity):
         with self.lock:
             self._departure = get_next_departure(self._pygtfs, self.origin,
                                                  self.destination)
+            if not self._departure:
+                self._state = 0
+                self._attributes = {'Info': 'No more departures today'}
+                if self._name == '':
+                    self._name = (self._custom_name or DEFAULT_NAME)
+                return
+
             self._state = self._departure['minutes_until_departure']
 
             origin_station = self._departure['origin_station']

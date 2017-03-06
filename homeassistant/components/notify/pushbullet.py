@@ -25,7 +25,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 # pylint: disable=unused-argument
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the PushBullet notification service."""
     from pushbullet import PushBullet
     from pushbullet import InvalidKeyError
@@ -41,7 +41,6 @@ def get_service(hass, config):
     return PushBulletNotificationService(pushbullet)
 
 
-# pylint: disable=too-few-public-methods, too-many-branches
 class PushBulletNotificationService(BaseNotificationService):
     """Implement the notification service for Pushbullet."""
 

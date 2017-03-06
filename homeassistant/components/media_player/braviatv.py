@@ -13,16 +13,16 @@ import voluptuous as vol
 
 from homeassistant.loader import get_component
 from homeassistant.components.media_player import (
-    SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
-    SUPPORT_TURN_OFF, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
+    SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK, SUPPORT_TURN_ON,
+    SUPPORT_TURN_OFF, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP, SUPPORT_PLAY,
     SUPPORT_VOLUME_SET, SUPPORT_SELECT_SOURCE, MediaPlayerDevice,
     PLATFORM_SCHEMA)
 from homeassistant.const import (CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON)
 import homeassistant.helpers.config_validation as cv
 
 REQUIREMENTS = [
-    'https://github.com/aparraga/braviarc/archive/0.3.5.zip'
-    '#braviarc==0.3.5']
+    'https://github.com/aparraga/braviarc/archive/0.3.6.zip'
+    '#braviarc==0.3.6']
 
 BRAVIA_CONFIG_FILE = 'bravia.conf'
 
@@ -40,7 +40,8 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORT_BRAVIA = SUPPORT_PAUSE | SUPPORT_VOLUME_STEP | \
                  SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET | \
                  SUPPORT_PREVIOUS_TRACK | SUPPORT_NEXT_TRACK | \
-                 SUPPORT_TURN_OFF | SUPPORT_SELECT_SOURCE
+                 SUPPORT_TURN_ON | SUPPORT_TURN_OFF | \
+                 SUPPORT_SELECT_SOURCE | SUPPORT_PLAY
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
@@ -117,7 +118,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     setup_bravia(config, pin, hass, add_devices)
 
 
-# pylint: disable=too-many-branches
 def setup_bravia(config, pin, hass, add_devices):
     """Setup a Sony Bravia TV based on host parameter."""
     host = config.get(CONF_HOST)
@@ -181,8 +181,6 @@ def request_configuration(config, hass, add_devices):
     )
 
 
-# pylint: disable=abstract-method, too-many-public-methods,
-# pylint: disable=too-many-instance-attributes, too-many-arguments
 class BraviaTVDevice(MediaPlayerDevice):
     """Representation of a Sony Bravia TV."""
 
@@ -221,7 +219,8 @@ class BraviaTVDevice(MediaPlayerDevice):
     def update(self):
         """Update TV info."""
         if not self._braviarc.is_connected():
-            self._braviarc.connect(self._pin, CLIENTID_PREFIX, NICKNAME)
+            if self._braviarc.get_power_status() != 'off':
+                self._braviarc.connect(self._pin, CLIENTID_PREFIX, NICKNAME)
             if not self._braviarc.is_connected():
                 return
 
@@ -317,8 +316,8 @@ class BraviaTVDevice(MediaPlayerDevice):
         return self._muted
 
     @property
-    def supported_media_commands(self):
-        """Flag of media commands that are supported."""
+    def supported_features(self):
+        """Flag media player features that are supported."""
         return SUPPORT_BRAVIA
 
     @property

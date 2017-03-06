@@ -4,10 +4,13 @@ Z-Wave platform that handles simple binary switches.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/switch.zwave/
 """
+import logging
 # Because we do not compile openzwave on CI
 # pylint: disable=import-error
 from homeassistant.components.switch import DOMAIN, SwitchDevice
 from homeassistant.components import zwave
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # pylint: disable=unused-argument
@@ -34,20 +37,12 @@ class ZwaveSwitch(zwave.ZWaveDeviceEntity, SwitchDevice):
 
     def __init__(self, value):
         """Initialize the Z-Wave switch device."""
-        from openzwave.network import ZWaveNetwork
-        from pydispatch import dispatcher
-
         zwave.ZWaveDeviceEntity.__init__(self, value, DOMAIN)
+        self.update_properties()
 
-        self._state = value.data
-        dispatcher.connect(
-            self._value_changed, ZWaveNetwork.SIGNAL_VALUE_CHANGED)
-
-    def _value_changed(self, value):
-        """Called when a value has changed on the network."""
-        if self._value.value_id == value.value_id:
-            self._state = value.data
-            self.update_ha_state()
+    def update_properties(self):
+        """Callback on data changes for node values."""
+        self._state = self._value.data
 
     @property
     def is_on(self):

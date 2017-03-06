@@ -84,20 +84,13 @@ def update_and_define_min_max(config, minimum_default,
     return minimum_value, maximum_value
 
 
-class KNXSensorBaseClass():  # pylint: disable=too-few-public-methods
+class KNXSensorBaseClass():
     """Sensor Base Class for all KNX Sensors."""
-
-    _unit_of_measurement = None
 
     @property
     def cache(self):
         """We don't want to cache any Sensor Value."""
         return False
-
-    @property
-    def unit_of_measurement(self):
-        """Return the defined Unit of Measurement for the KNX Sensor."""
-        return self._unit_of_measurement
 
 
 class KNXSensorFloatClass(KNXGroupAddress, KNXSensorBaseClass):
@@ -107,22 +100,35 @@ class KNXSensorFloatClass(KNXGroupAddress, KNXSensorBaseClass):
     Defined in KNX 3.7.2 - 3.10
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(self, hass, config, unit_of_measurement, minimum_sensor_value,
                  maximum_sensor_value):
         """Initialize a KNX Float Sensor."""
         self._unit_of_measurement = unit_of_measurement
         self._minimum_value = minimum_sensor_value
         self._maximum_value = maximum_sensor_value
+        self._value = None
 
         KNXGroupAddress.__init__(self, hass, config)
 
     @property
     def state(self):
         """Return the Value of the KNX Sensor."""
+        return self._value
+
+    @property
+    def unit_of_measurement(self):
+        """Return the defined Unit of Measurement for the KNX Sensor."""
+        return self._unit_of_measurement
+
+    def update(self):
+        """Update KNX sensor."""
+        from knxip.conversion import knx2_to_float
+
+        super().update()
+
+        self._value = None
+
         if self._data:
-            from knxip.conversion import knx2_to_float
             value = knx2_to_float(self._data)
             if self._minimum_value <= value <= self._maximum_value:
-                return value
-        return None
+                self._value = value

@@ -27,7 +27,7 @@ PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA.extend({
 
 
 # pylint: disable=unused-variable
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the Pushover notification service."""
     from pushover import InitError
 
@@ -40,7 +40,6 @@ def get_service(hass, config):
         return None
 
 
-# pylint: disable=too-few-public-methods
 class PushoverNotificationService(BaseNotificationService):
     """Implement the notification service for Pushover."""
 

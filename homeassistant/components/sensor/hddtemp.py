@@ -83,7 +83,7 @@ class HddTempSensor(Entity):
             return TEMP_FAHRENHEIT
 
     @property
-    def state_attributes(self):
+    def device_state_attributes(self):
         """Return the state attributes of the sensor."""
         return {
             ATTR_DEVICE: self.details[1],
@@ -101,7 +101,6 @@ class HddTempSensor(Entity):
             self._state = STATE_UNKNOWN
 
 
-# pylint: disable=too-few-public-methods
 class HddTempData(object):
     """Get the latest data from HDDTemp and update the states."""
 

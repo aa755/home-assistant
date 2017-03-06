@@ -27,7 +27,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 # pylint: disable=unused-variable
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the Join notification service."""
     device_id = config.get(CONF_DEVICE_ID)
     api_key = config.get(CONF_API_KEY)
@@ -39,7 +39,6 @@ def get_service(hass, config):
     return JoinNotificationService(device_id, api_key)
 
 
-# pylint: disable=too-few-public-methods
 class JoinNotificationService(BaseNotificationService):
     """Implement the notification service for Join."""
 

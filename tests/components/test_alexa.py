@@ -1,12 +1,12 @@
 """The tests for the Alexa component."""
-# pylint: disable=protected-access,too-many-public-methods
+# pylint: disable=protected-access
 import json
-import time
 import datetime
 import unittest
 
 import requests
 
+from homeassistant.core import callback
 from homeassistant import bootstrap, const
 from homeassistant.components import alexa, http
 
@@ -36,7 +36,8 @@ NPR_NEWS_MP3_URL = "https://pd.npr.org/anon.npr-mp3/npr/news/newscast.mp3"
 STATIC_TIME = datetime.datetime.utcfromtimestamp(1476129102)
 
 
-def setUpModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def setUpModule():
     """Initialize a Home Assistant server for testing this module."""
     global hass
 
@@ -47,7 +48,11 @@ def setUpModule():   # pylint: disable=invalid-name
         {http.DOMAIN: {http.CONF_API_PASSWORD: API_PASSWORD,
                        http.CONF_SERVER_PORT: SERVER_PORT}})
 
-    hass.services.register("test", "alexa", lambda call: calls.append(call))
+    @callback
+    def mock_service(call):
+        calls.append(call)
+
+    hass.services.register("test", "alexa", mock_service)
 
     bootstrap.setup_component(hass, alexa.DOMAIN, {
         # Key is here to verify we allow other keys in config too
@@ -96,6 +101,12 @@ def setUpModule():   # pylint: disable=invalid-name
                         "text": "You told us your sign is {{ ZodiacSign }}.",
                     }
                 },
+                "AMAZON.PlaybackAction<object@MusicCreativeWork>": {
+                    "speech": {
+                        "type": "plaintext",
+                        "text": "Playing {{ object_byArtist_name }}.",
+                    }
+                },
                 "CallServiceIntent": {
                     "speech": {
                         "type": "plaintext",
@@ -114,10 +125,10 @@ def setUpModule():   # pylint: disable=invalid-name
     })
 
     hass.start()
-    time.sleep(0.05)
 
 
-def tearDownModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def tearDownModule():
     """Stop the Home Assistant server."""
     hass.stop()
 
@@ -370,6 +381,65 @@ class TestAlexa(unittest.TestCase):
         req = _intent_req(data)
         self.assertEqual(200, req.status_code)
         self.assertEqual("", req.text)
+
+    def test_intent_from_built_in_intent_library(self):
+        """Test intents from the Built-in Intent Library."""
+        data = {
+            'request': {
+                'intent': {
+                    'name': 'AMAZON.PlaybackAction<object@MusicCreativeWork>',
+                    'slots': {
+                        'object.byArtist.name': {
+                            'name': 'object.byArtist.name',
+                            'value': 'the shins'
+                        },
+                        'object.composer.name': {
+                            'name': 'object.composer.name'
+                        },
+                        'object.contentSource': {
+                            'name': 'object.contentSource'
+                        },
+                        'object.era': {
+                            'name': 'object.era'
+                        },
+                        'object.genre': {
+                            'name': 'object.genre'
+                        },
+                        'object.name': {
+                            'name': 'object.name'
+                        },
+                        'object.owner.name': {
+                            'name': 'object.owner.name'
+                        },
+                        'object.select': {
+                            'name': 'object.select'
+                        },
+                        'object.sort': {
+                            'name': 'object.sort'
+                        },
+                        'object.type': {
+                            'name': 'object.type',
+                            'value': 'music'
+                        }
+                    }
+                },
+                'timestamp': '2016-12-14T23:23:37Z',
+                'type': 'IntentRequest',
+                'requestId': REQUEST_ID,
+
+            },
+            'session': {
+                'sessionId': SESSION_ID,
+                'application': {
+                    'applicationId': APPLICATION_ID
+                }
+            }
+        }
+        req = _intent_req(data)
+        self.assertEqual(200, req.status_code)
+        text = req.json().get("response", {}).get("outputSpeech",
+                                                  {}).get("text")
+        self.assertEqual("Playing the shins.", text)
 
     def test_flash_briefing_invalid_id(self):
         """Test an invalid Flash Briefing ID."""

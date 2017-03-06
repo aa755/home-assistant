@@ -1,8 +1,7 @@
 """Test Home Assistant remote methods and classes."""
-# pylint: disable=protected-access,too-many-public-methods
+# pylint: disable=protected-access
 import asyncio
 import threading
-import time
 import unittest
 from unittest.mock import patch
 
@@ -16,24 +15,25 @@ import homeassistant.util.dt as dt_util
 from tests.common import (
     get_test_instance_port, get_test_home_assistant, get_test_config_dir)
 
-API_PASSWORD = "test1234"
+API_PASSWORD = 'test1234'
 MASTER_PORT = get_test_instance_port()
 SLAVE_PORT = get_test_instance_port()
 BROKEN_PORT = get_test_instance_port()
-HTTP_BASE_URL = "http://127.0.0.1:{}".format(MASTER_PORT)
+HTTP_BASE_URL = 'http://127.0.0.1:{}'.format(MASTER_PORT)
 
 HA_HEADERS = {HTTP_HEADER_HA_AUTH: API_PASSWORD}
 
-broken_api = remote.API('127.0.0.1', "bladiebla")
+broken_api = remote.API('127.0.0.1', "bladybla", port=get_test_instance_port())
 hass, slave, master_api = None, None, None
 
 
-def _url(path=""):
+def _url(path=''):
     """Helper method to generate URLs."""
     return HTTP_BASE_URL + path
 
 
-def setUpModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def setUpModule():
     """Initalization of a Home Assistant server and Slave instance."""
     global hass, slave, master_api
 
@@ -50,18 +50,18 @@ def setUpModule():   # pylint: disable=invalid-name
     bootstrap.setup_component(hass, 'api')
 
     hass.start()
-    time.sleep(0.05)
 
-    master_api = remote.API("127.0.0.1", API_PASSWORD, MASTER_PORT)
+    master_api = remote.API('127.0.0.1', API_PASSWORD, MASTER_PORT)
 
     # Start slave
     loop = asyncio.new_event_loop()
 
     # FIXME: should not be a daemon
-    threading.Thread(name="SlaveThread", daemon=True,
+    threading.Thread(name='SlaveThread', daemon=True,
                      target=loop.run_forever).start()
 
     slave = remote.HomeAssistant(master_api, loop=loop)
+    slave.async_track_tasks()
     slave.config.config_dir = get_test_config_dir()
     slave.config.skip_pip = True
     bootstrap.setup_component(
@@ -73,7 +73,8 @@ def setUpModule():   # pylint: disable=invalid-name
         slave.start()
 
 
-def tearDownModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def tearDownModule():
     """Stop the Home Assistant server and slave."""
     slave.stop()
     hass.stop()
@@ -94,7 +95,7 @@ class TestRemoteMethods(unittest.TestCase):
         self.assertEqual(
             remote.APIStatus.INVALID_PASSWORD,
             remote.validate_api(
-                remote.API("127.0.0.1", API_PASSWORD + "A", MASTER_PORT)))
+                remote.API('127.0.0.1', API_PASSWORD + 'A', MASTER_PORT)))
 
         self.assertEqual(
             remote.APIStatus.CANNOT_CONNECT, remote.validate_api(broken_api))
@@ -116,6 +117,7 @@ class TestRemoteMethods(unittest.TestCase):
         """Test Python API fire_event."""
         test_value = []
 
+        @ha.callback
         def listener(event):
             """Helper method that will verify our event got called."""
             test_value.append(1)
@@ -200,6 +202,7 @@ class TestRemoteMethods(unittest.TestCase):
         """Test Python API services.call."""
         test_value = []
 
+        @ha.callback
         def listener(service_call):
             """Helper method that will verify that our service got called."""
             test_value.append(1)

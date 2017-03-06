@@ -1,5 +1,5 @@
 """The testd for Core components."""
-# pylint: disable=protected-access,too-many-public-methods
+# pylint: disable=protected-access
 import asyncio
 import unittest
 from unittest.mock import patch, Mock
@@ -11,17 +11,19 @@ from homeassistant import config
 from homeassistant.const import (
     STATE_ON, STATE_OFF, SERVICE_TURN_ON, SERVICE_TURN_OFF, SERVICE_TOGGLE)
 import homeassistant.components as comps
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity
 from homeassistant.util.async import run_coroutine_threadsafe
 
 from tests.common import (
-    get_test_home_assistant, mock_service, patch_yaml_files)
+    get_test_home_assistant, mock_service, patch_yaml_files, mock_coro)
 
 
 class TestComponentsCore(unittest.TestCase):
     """Test homeassistant.components module."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    # pylint: disable=invalid-name
+    def setUp(self):
         """Setup things to be run when tests are started."""
         self.hass = get_test_home_assistant()
         self.assertTrue(run_coroutine_threadsafe(
@@ -31,7 +33,8 @@ class TestComponentsCore(unittest.TestCase):
         self.hass.states.set('light.Bowl', STATE_ON)
         self.hass.states.set('light.Ceiling', STATE_OFF)
 
-    def tearDown(self):  # pylint: disable=invalid-name
+    # pylint: disable=invalid-name
+    def tearDown(self):
         """Stop everything that was started."""
         self.hass.stop()
 
@@ -148,3 +151,44 @@ class TestComponentsCore(unittest.TestCase):
 
         assert mock_error.called
         assert mock_process.called is False
+
+    @patch('homeassistant.core.HomeAssistant.async_stop',
+           return_value=mock_coro())
+    def test_stop_homeassistant(self, mock_stop):
+        """Test stop service."""
+        comps.stop(self.hass)
+        self.hass.block_till_done()
+        assert mock_stop.called
+
+    @patch('homeassistant.core.HomeAssistant.async_stop',
+           return_value=mock_coro())
+    @patch('homeassistant.config.async_check_ha_config_file',
+           return_value=mock_coro())
+    def test_restart_homeassistant(self, mock_check, mock_restart):
+        """Test stop service."""
+        comps.restart(self.hass)
+        self.hass.block_till_done()
+        assert mock_restart.called
+        assert mock_check.called
+
+    @patch('homeassistant.core.HomeAssistant.async_stop',
+           return_value=mock_coro())
+    @patch('homeassistant.config.async_check_ha_config_file',
+           side_effect=HomeAssistantError("Test error"))
+    def test_restart_homeassistant_wrong_conf(self, mock_check, mock_restart):
+        """Test stop service."""
+        comps.restart(self.hass)
+        self.hass.block_till_done()
+        assert mock_check.called
+        assert not mock_restart.called
+
+    @patch('homeassistant.core.HomeAssistant.async_stop',
+           return_value=mock_coro())
+    @patch('homeassistant.config.async_check_ha_config_file',
+           return_value=mock_coro())
+    def test_check_config(self, mock_check, mock_stop):
+        """Test stop service."""
+        comps.check_config(self.hass)
+        self.hass.block_till_done()
+        assert mock_check.called
+        assert not mock_stop.called

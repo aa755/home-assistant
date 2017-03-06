@@ -16,11 +16,12 @@ from homeassistant.remote import JSONEncoder
 # pylint: disable=invalid-name
 Base = declarative_base()
 
+SCHEMA_VERSION = 1
+
 _LOGGER = logging.getLogger(__name__)
 
 
 class Events(Base):  # type: ignore
-    # pylint: disable=too-few-public-methods
     """Event history data."""
 
     __tablename__ = 'events'
@@ -28,7 +29,7 @@ class Events(Base):  # type: ignore
     event_type = Column(String(32), index=True)
     event_data = Column(Text)
     origin = Column(String(32))
-    time_fired = Column(DateTime(timezone=True))
+    time_fired = Column(DateTime(timezone=True), index=True)
     created = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     @staticmethod
@@ -55,7 +56,6 @@ class Events(Base):  # type: ignore
 
 
 class States(Base):   # type: ignore
-    # pylint: disable=too-few-public-methods
     """State change history."""
 
     __tablename__ = 'states'
@@ -115,7 +115,6 @@ class States(Base):   # type: ignore
 
 
 class RecorderRuns(Base):   # type: ignore
-    # pylint: disable=too-few-public-methods
     """Representation of recorder run."""
 
     __tablename__ = 'recorder_runs'
@@ -150,6 +149,15 @@ class RecorderRuns(Base):   # type: ignore
     def to_native(self):
         """Return self, native format is this model."""
         return self
+
+
+class SchemaChanges(Base):   # type: ignore
+    """Representation of schema version changes."""
+
+    __tablename__ = 'schema_changes'
+    change_id = Column(Integer, primary_key=True)
+    schema_version = Column(Integer)
+    changed = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
 def _process_timestamp(ts):

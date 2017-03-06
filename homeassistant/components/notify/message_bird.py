@@ -25,7 +25,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 # pylint: disable=unused-argument
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the MessageBird notification service."""
     import messagebird
 
@@ -40,7 +40,6 @@ def get_service(hass, config):
     return MessageBirdNotificationService(config.get(CONF_SENDER), client)
 
 
-# pylint: disable=too-few-public-methods
 class MessageBirdNotificationService(BaseNotificationService):
     """Implement the notification service for MessageBird."""
 

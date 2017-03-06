@@ -77,14 +77,13 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         vol.In(TRANSPARENCIES.keys()),
     vol.Optional(CONF_COLOR, default=DEFAULT_COLOR):
         vol.In(COLORS.keys()),
-    vol.Optional(CONF_COLOR, default=DEFAULT_COLOR): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(int),
     vol.Optional(CONF_INTERRUPT, default=DEFAULT_INTERRUPT): cv.boolean,
 })
 
 
 # pylint: disable=unused-argument
-def get_service(hass, config):
+def get_service(hass, config, discovery_info=None):
     """Get the Notifications for Android TV notification service."""
     remoteip = config.get(CONF_IP)
     duration = config.get(CONF_DURATION)
@@ -98,11 +97,9 @@ def get_service(hass, config):
         remoteip, duration, position, transparency, color, interrupt, timeout)
 
 
-# pylint: disable=too-many-instance-attributes
 class NFAndroidTVNotificationService(BaseNotificationService):
     """Notification service for Notifications for Android TV."""
 
-    # pylint: disable=too-many-arguments,too-few-public-methods
     def __init__(self, remoteip, duration, position, transparency, color,
                  interrupt, timeout):
         """Initialize the service."""
@@ -117,7 +114,6 @@ class NFAndroidTVNotificationService(BaseNotificationService):
             os.path.dirname(__file__), '..', 'frontend', 'www_static', 'icons',
             'favicon-192x192.png')
 
-    # pylint: disable=too-many-branches
     def send_message(self, message="", **kwargs):
         """Send a message to a Android TV device."""
         _LOGGER.debug("Sending notification to: %s", self._target)

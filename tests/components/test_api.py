@@ -1,9 +1,8 @@
 """The tests for the Home Assistant API component."""
-# pylint: disable=protected-access,too-many-public-methods
+# pylint: disable=protected-access
 import asyncio
 from contextlib import closing
 import json
-import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -32,7 +31,8 @@ def _url(path=""):
     return HTTP_BASE_URL + path
 
 
-def setUpModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def setUpModule():
     """Initialize a Home Assistant server."""
     global hass
 
@@ -49,10 +49,10 @@ def setUpModule():   # pylint: disable=invalid-name
     bootstrap.setup_component(hass, 'api')
 
     hass.start()
-    time.sleep(0.05)
 
 
-def tearDownModule():   # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+def tearDownModule():
     """Stop the Home Assistant server."""
     hass.stop()
 
@@ -235,13 +235,17 @@ class TestAPI(unittest.TestCase):
         """Test the return of the configuration."""
         req = requests.get(_url(const.URL_API_CONFIG),
                            headers=HA_HEADERS)
-        self.assertEqual(hass.config.as_dict(), req.json())
+        result = req.json()
+        if 'components' in result:
+            result['components'] = set(result['components'])
+
+        self.assertEqual(hass.config.as_dict(), result)
 
     def test_api_get_components(self):
         """Test the return of the components."""
         req = requests.get(_url(const.URL_API_COMPONENTS),
                            headers=HA_HEADERS)
-        self.assertEqual(hass.config.components, req.json())
+        self.assertEqual(hass.config.components, set(req.json()))
 
     def test_api_get_error_log(self):
         """Test the return of the error log."""
@@ -288,6 +292,7 @@ class TestAPI(unittest.TestCase):
         """Test if the API allows us to call a service."""
         test_value = []
 
+        @ha.callback
         def listener(service_call):
             """Helper method that will verify that our service got called."""
             test_value.append(1)
@@ -307,6 +312,7 @@ class TestAPI(unittest.TestCase):
         """Test if the API allows us to call a service."""
         test_value = []
 
+        @ha.callback
         def listener(service_call):
             """Helper method that will verify that our service got called.
 

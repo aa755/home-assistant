@@ -63,7 +63,7 @@ def setup_proximity_component(hass, name, config):
     proximity_zone = name
     unit_of_measurement = config.get(
         CONF_UNIT_OF_MEASUREMENT, hass.config.units.length_unit)
-    zone_id = 'zone.{}'.format(proximity_zone)
+    zone_id = 'zone.{}'.format(config.get(CONF_ZONE))
 
     proximity = Proximity(hass, proximity_zone, DEFAULT_DIST_TO_ZONE,
                           DEFAULT_DIR_OF_TRAVEL, DEFAULT_NEAREST,
@@ -87,11 +87,9 @@ def setup(hass, config):
     return True
 
 
-# pylint: disable=too-many-instance-attributes
 class Proximity(Entity):
     """Representation of a Proximity."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, hass, zone_friendly_name, dist_to, dir_of_travel,
                  nearest, ignored_zones, proximity_devices, tolerance,
                  proximity_zone, unit_of_measurement):
@@ -130,7 +128,6 @@ class Proximity(Entity):
             ATTR_NEAREST: self.nearest,
         }
 
-    # pylint: disable=too-many-branches,too-many-statements,too-many-locals
     def check_proximity_state_change(self, entity, old_state, new_state):
         """Function to perform the proximity checking."""
         entity_name = new_state.name
@@ -144,6 +141,10 @@ class Proximity(Entity):
         # Check for devices in the monitored zone.
         for device in self.proximity_devices:
             device_state = self.hass.states.get(device)
+
+            if device_state is None:
+                devices_to_calculate = True
+                continue
 
             if device_state.state not in self.ignored_zones:
                 devices_to_calculate = True

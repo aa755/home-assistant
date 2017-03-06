@@ -9,11 +9,11 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.core import callback
 from homeassistant.const import ATTR_ENTITY_ID, CONF_ICON, CONF_NAME
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers.restore_state import async_get_last_state
 
 
 DOMAIN = 'input_select'
@@ -46,6 +46,15 @@ SERVICE_SELECT_PREVIOUS_SCHEMA = vol.Schema({
 })
 
 
+SERVICE_SET_OPTIONS = 'set_options'
+
+SERVICE_SET_OPTIONS_SCHEMA = vol.Schema({
+    vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+    vol.Required(ATTR_OPTIONS):
+        vol.All(cv.ensure_list, vol.Length(min=1), [cv.string]),
+})
+
+
 def _cv_input_select(cfg):
     """Config validation helper for input select (Voluptuous)."""
     options = cfg[CONF_OPTIONS]
@@ -56,14 +65,16 @@ def _cv_input_select(cfg):
     return cfg
 
 
-CONFIG_SCHEMA = vol.Schema({DOMAIN: {
-    cv.slug: vol.All({
-        vol.Optional(CONF_NAME): cv.string,
-        vol.Required(CONF_OPTIONS): vol.All(cv.ensure_list, vol.Length(min=1),
-                                            [cv.string]),
-        vol.Optional(CONF_INITIAL): cv.string,
-        vol.Optional(CONF_ICON): cv.icon,
-    }, _cv_input_select)}}, required=True, extra=vol.ALLOW_EXTRA)
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        cv.slug: vol.All({
+            vol.Optional(CONF_NAME): cv.string,
+            vol.Required(CONF_OPTIONS):
+                vol.All(cv.ensure_list, vol.Length(min=1), [cv.string]),
+            vol.Optional(CONF_INITIAL): cv.string,
+            vol.Optional(CONF_ICON): cv.icon,
+        }, _cv_input_select)})
+}, required=True, extra=vol.ALLOW_EXTRA)
 
 
 def select_option(hass, entity_id, option):
@@ -88,6 +99,14 @@ def select_previous(hass, entity_id):
     })
 
 
+def set_options(hass, entity_id, options):
+    """Set options of input_select."""
+    hass.services.call(DOMAIN, SERVICE_SET_OPTIONS, {
+        ATTR_ENTITY_ID: entity_id,
+        ATTR_OPTIONS: options,
+    })
+
+
 @asyncio.coroutine
 def async_setup(hass, config):
     """Setup input select."""
@@ -105,41 +124,61 @@ def async_setup(hass, config):
     if not entities:
         return False
 
-    @callback
+    @asyncio.coroutine
     def async_select_option_service(call):
         """Handle a calls to the input select option service."""
         target_inputs = component.async_extract_from_service(call)
 
-        for input_select in target_inputs:
-            input_select.select_option(call.data[ATTR_OPTION])
+        tasks = [input_select.async_select_option(call.data[ATTR_OPTION])
+                 for input_select in target_inputs]
+        if tasks:
+            yield from asyncio.wait(tasks, loop=hass.loop)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SELECT_OPTION, async_select_option_service,
         schema=SERVICE_SELECT_OPTION_SCHEMA)
 
-    @callback
+    @asyncio.coroutine
     def async_select_next_service(call):
         """Handle a calls to the input select next service."""
         target_inputs = component.async_extract_from_service(call)
 
-        for input_select in target_inputs:
-            input_select.offset_index(1)
+        tasks = [input_select.async_offset_index(1)
+                 for input_select in target_inputs]
+        if tasks:
+            yield from asyncio.wait(tasks, loop=hass.loop)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SELECT_NEXT, async_select_next_service,
         schema=SERVICE_SELECT_NEXT_SCHEMA)
 
-    @callback
+    @asyncio.coroutine
     def async_select_previous_service(call):
         """Handle a calls to the input select previous service."""
         target_inputs = component.async_extract_from_service(call)
 
-        for input_select in target_inputs:
-            input_select.offset_index(-1)
+        tasks = [input_select.async_offset_index(-1)
+                 for input_select in target_inputs]
+        if tasks:
+            yield from asyncio.wait(tasks, loop=hass.loop)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SELECT_PREVIOUS, async_select_previous_service,
         schema=SERVICE_SELECT_PREVIOUS_SCHEMA)
+
+    @asyncio.coroutine
+    def async_set_options_service(call):
+        """Handle a calls to the set options service."""
+        target_inputs = component.async_extract_from_service(call)
+
+        tasks = [input_select.async_set_options(call.data[ATTR_OPTIONS])
+                 for input_select in target_inputs]
+        if tasks:
+            yield from asyncio.wait(tasks, loop=hass.loop)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_OPTIONS, async_set_options_service,
+        schema=SERVICE_SET_OPTIONS_SCHEMA)
 
     yield from component.async_add_entities(entities)
     return True
@@ -148,7 +187,6 @@ def async_setup(hass, config):
 class InputSelect(Entity):
     """Representation of a select input."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, object_id, name, state, options, icon):
         """Initialize a select input."""
         self.entity_id = ENTITY_ID_FORMAT.format(object_id)
@@ -156,6 +194,16 @@ class InputSelect(Entity):
         self._current_option = state
         self._options = options
         self._icon = icon
+
+    @asyncio.coroutine
+    def async_added_to_hass(self):
+        """Called when entity about to be added to hass."""
+        state = yield from async_get_last_state(self.hass, self.entity_id)
+        if not state:
+            return
+        if state.state not in self._options:
+            return
+        self._current_option = state.state
 
     @property
     def should_poll(self):
@@ -184,18 +232,27 @@ class InputSelect(Entity):
             ATTR_OPTIONS: self._options,
         }
 
-    def select_option(self, option):
+    @asyncio.coroutine
+    def async_select_option(self, option):
         """Select new option."""
         if option not in self._options:
             _LOGGER.warning('Invalid option: %s (possible options: %s)',
                             option, ', '.join(self._options))
             return
         self._current_option = option
-        self.hass.loop.create_task(self.async_update_ha_state())
+        yield from self.async_update_ha_state()
 
-    def offset_index(self, offset):
+    @asyncio.coroutine
+    def async_offset_index(self, offset):
         """Offset current index."""
         current_index = self._options.index(self._current_option)
         new_index = (current_index + offset) % len(self._options)
         self._current_option = self._options[new_index]
-        self.hass.loop.create_task(self.async_update_ha_state())
+        yield from self.async_update_ha_state()
+
+    @asyncio.coroutine
+    def async_set_options(self, options):
+        """Set options."""
+        self._current_option = options[0]
+        self._options = options
+        yield from self.async_update_ha_state()

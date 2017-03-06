@@ -4,16 +4,18 @@ Support for displaying the minimal and the maximal value.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/sensor.min_max/
 """
+import asyncio
 import logging
 
 import voluptuous as vol
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import (
     CONF_NAME, STATE_UNKNOWN, CONF_TYPE, ATTR_UNIT_OF_MEASUREMENT)
-import homeassistant.helpers.config_validation as cv
+from homeassistant.core import callback
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import track_state_change
+from homeassistant.helpers.event import async_track_state_change
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,8 +32,9 @@ ATTR_TO_PROPERTY = [
 ]
 
 CONF_ENTITY_IDS = 'entity_ids'
+CONF_ROUND_DIGITS = 'round_digits'
 
-DEFAULT_NAME = 'Min/Max Sensor'
+DEFAULT_NAME = 'Min/Max/Avg Sensor'
 
 ICON = 'mdi:calculator'
 
@@ -46,27 +49,33 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         vol.All(cv.string, vol.In(SENSOR_TYPES.values())),
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Required(CONF_ENTITY_IDS): cv.entity_ids,
+    vol.Optional(CONF_ROUND_DIGITS, default=2): vol.Coerce(int),
 })
 
 
-def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Set up the min/max sensor."""
+@asyncio.coroutine
+def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+    """Set up the min/max/mean sensor."""
     entity_ids = config.get(CONF_ENTITY_IDS)
     name = config.get(CONF_NAME)
     sensor_type = config.get(CONF_TYPE)
+    round_digits = config.get(CONF_ROUND_DIGITS)
 
-    add_devices([MinMaxSensor(hass, entity_ids, name, sensor_type)])
+    yield from async_add_devices(
+        [MinMaxSensor(hass, entity_ids, name, sensor_type, round_digits)],
+        True)
+    return True
 
 
-# pylint: disable=too-many-instance-attributes
 class MinMaxSensor(Entity):
     """Representation of a min/max sensor."""
 
-    def __init__(self, hass, entity_ids, name, sensor_type):
+    def __init__(self, hass, entity_ids, name, sensor_type, round_digits):
         """Initialize the min/max sensor."""
         self._hass = hass
         self._entity_ids = entity_ids
         self._sensor_type = sensor_type
+        self._round_digits = round_digits
         self._name = '{} {}'.format(
             name, next(v for k, v in SENSOR_TYPES.items()
                        if self._sensor_type == v))
@@ -74,9 +83,10 @@ class MinMaxSensor(Entity):
         self.min_value = self.max_value = self.mean = STATE_UNKNOWN
         self.count_sensors = len(self._entity_ids)
         self.states = {}
-        self.update()
 
-        def min_max_sensor_state_listener(entity, old_state, new_state):
+        @callback
+        # pylint: disable=invalid-name
+        def async_min_max_sensor_state_listener(entity, old_state, new_state):
             """Called when the sensor changes state."""
             if new_state.state is None or new_state.state in STATE_UNKNOWN:
                 return
@@ -95,9 +105,10 @@ class MinMaxSensor(Entity):
                 _LOGGER.warning("Unable to store state. "
                                 "Only numerical states are supported")
 
-            self.update_ha_state(True)
+            hass.async_add_job(self.async_update_ha_state, True)
 
-        track_state_change(hass, entity_ids, min_max_sensor_state_listener)
+        async_track_state_change(
+            hass, entity_ids, async_min_max_sensor_state_listener)
 
     @property
     def name(self):
@@ -134,13 +145,15 @@ class MinMaxSensor(Entity):
         """Return the icon to use in the frontend, if any."""
         return ICON
 
-    def update(self):
+    @asyncio.coroutine
+    def async_update(self):
         """Get the latest data and updates the states."""
         sensor_values = [self.states[k] for k in self._entity_ids
                          if k in self.states]
         if len(sensor_values) == self.count_sensors:
             self.min_value = min(sensor_values)
             self.max_value = max(sensor_values)
-            self.mean = round(sum(sensor_values) / self.count_sensors, 2)
+            self.mean = round(sum(sensor_values) / self.count_sensors,
+                              self._round_digits)
         else:
             self.min_value = self.max_value = self.mean = STATE_UNKNOWN

@@ -51,10 +51,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     for port_num, port_name in ports.items():
         binary_sensors.append(RPiGPIOBinarySensor(
             port_name, port_num, pull_mode, bouncetime, invert_logic))
-    add_devices(binary_sensors)
+    add_devices(binary_sensors, True)
 
 
-# pylint: disable=too-many-arguments, too-many-instance-attributes
 class RPiGPIOBinarySensor(BinarySensorDevice):
     """Represent a binary sensor that uses Raspberry Pi GPIO."""
 
@@ -66,14 +65,14 @@ class RPiGPIOBinarySensor(BinarySensorDevice):
         self._pull_mode = pull_mode
         self._bouncetime = bouncetime
         self._invert_logic = invert_logic
+        self._state = None
 
         rpi_gpio.setup_input(self._port, self._pull_mode)
-        self._state = rpi_gpio.read_input(self._port)
 
         def read_gpio(port):
             """Read state from GPIO."""
             self._state = rpi_gpio.read_input(self._port)
-            self.update_ha_state()
+            self.schedule_update_ha_state()
 
         rpi_gpio.edge_detect(self._port, read_gpio, self._bouncetime)
 
@@ -91,3 +90,7 @@ class RPiGPIOBinarySensor(BinarySensorDevice):
     def is_on(self):
         """Return the state of the entity."""
         return self._state != self._invert_logic
+
+    def update(self):
+        """Update the GPIO state."""
+        self._state = rpi_gpio.read_input(self._port)
