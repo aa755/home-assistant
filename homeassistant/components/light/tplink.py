@@ -56,17 +56,17 @@ class TPLinkSmartBulb(SmartBulb):
 
         if ATTR_COLOR_TEMP in kwargs:
             colortemp = kwargs[ATTR_COLOR_TEMP]
-            self.smartbulb.color_temp(colortemp)
+            self.smartbulb.color_temp=colortemp
 
         if ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness or 255)
-            self.smartbulb.brightness(brightness)
+            self.smartbulb.brightness=brightness
 
-        self.smartbulb.state(self.smartbulb.BULB_STATE_ON)
+        self.smartbulb.state=self.smartbulb.BULB_STATE_ON
 
     def turn_off(self):
         """Turn the switch off."""
-        self.smartbulb.state(self.smartbulb.BULB_STATE_OFF)
+        self.smartbulb.state=self.smartbulb.BULB_STATE_OFF
 
     @property
     def color_temp(self):
