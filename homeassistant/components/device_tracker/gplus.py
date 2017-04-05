@@ -1,7 +1,7 @@
 """
 Get location from Google Plus Geolocation API.
 For more details about this platform, please refer to the documentation at
-https://home-assistant.io/components/device_tracker.gplus/
+https://github.com/aa755/home-assistant.github.io/blob/patch-2/source/_components/device_tracker.google_plus.markdown
 """
 import logging
 import json
