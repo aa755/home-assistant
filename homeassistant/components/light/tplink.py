@@ -14,8 +14,12 @@ from homeassistant.components.light import (
     Light, ATTR_BRIGHTNESS, ATTR_COLOR_TEMP, ATTR_RGB_COLOR, ATTR_TRANSITION,
     ATTR_XY_COLOR, SUPPORT_BRIGHTNESS, SUPPORT_COLOR_TEMP, SUPPORT_RGB_COLOR,
     SUPPORT_TRANSITION, SUPPORT_XY_COLOR)
+from homeassistant.util.color import \
+    color_temperature_mired_to_kelvin as mired_to_kelvin
+from homeassistant.util.color import \
+    color_temperature_kelvin_to_mired as kelvin_to_mired
 
-#REQUIREMENTS = ['pyHS100==0.2.3']
+REQUIREMENTS = ['pyHS100==0.2.4.1']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +33,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     name = config.get(CONF_NAME)
     add_devices([TPLinkSmartBulb(SmartBulb(host), name)], True)
 
+def brigtness_to_percentage(byte):
+    return (byte*100.0)/255.0
+
+def brigtness_from_percentage(byte):
+    return (byte*255.0)/100.0
 
 class TPLinkSmartBulb(Light):
     """Representation of a TPLink Smart Plug switch."""
@@ -56,7 +65,7 @@ class TPLinkSmartBulb(Light):
 
         if ATTR_COLOR_TEMP in kwargs:
             colortemp = kwargs[ATTR_COLOR_TEMP]
-            self.smartbulb.color_temp=colortemp
+            self.smartbulb.color_temp= mired_to_kelvin(colortemp)
 
         if ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness or 255)
@@ -71,7 +80,7 @@ class TPLinkSmartBulb(Light):
     @property
     def color_temp(self):
         """Return the color temperature of this light in mireds."""
-        return self.smartbulb.color_temp
+        return kelvin_to_mired(self.smartbulb.color_temp)
 
     @property
     def is_on(self):
