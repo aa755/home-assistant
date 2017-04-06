@@ -30,7 +30,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([TPLinkSmartBulb(SmartBulb(host), name)], True)
 
 
-class TPLinkSmartBulb(SmartBulb):
+class TPLinkSmartBulb(Light):
     """Representation of a TPLink Smart Plug switch."""
 
     def __init__(self, smartplug, name):
