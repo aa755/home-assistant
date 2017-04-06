@@ -33,11 +33,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     name = config.get(CONF_NAME)
     add_devices([TPLinkSmartBulb(SmartBulb(host), name)], True)
 
-def brigtness_to_percentage(byte):
-    return (byte*100.0)/255.0
+def brigtness_to_percentage(byt):
+    return (byt*100.0)/255.0
 
-def brigtness_from_percentage(byte):
-    return (byte*255.0)/100.0
+def brigtness_from_percentage(pc):
+    return (pc*255.0)/100.0
 
 class TPLinkSmartBulb(Light):
     """Representation of a TPLink Smart Plug switch."""
@@ -69,7 +69,7 @@ class TPLinkSmartBulb(Light):
 
         if ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness or 255)
-            self.smartbulb.brightness=brightness
+            self.smartbulb.brightness=brigtness_to_percentage(brightness)
 
         self.smartbulb.state=self.smartbulb.BULB_STATE_ON
 
@@ -81,6 +81,11 @@ class TPLinkSmartBulb(Light):
     def color_temp(self):
         """Return the color temperature of this light in mireds."""
         return kelvin_to_mired(self.smartbulb.color_temp)
+
+    @property
+    def brightness(self):
+        """Return the brightness of this light between 0..255."""
+        return brigtness_from_percentage(self.smartbulb.brightness)
 
     @property
     def is_on(self):
