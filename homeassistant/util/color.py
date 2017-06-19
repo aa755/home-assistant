@@ -392,9 +392,15 @@ def _get_blue(temperature: float) -> float:
 
 def color_temperature_mired_to_kelvin(mired_temperature):
     """Convert absolute mired shift to degrees kelvin."""
-    return 1000000 / mired_temperature
+    if mired_temperature==0:
+        return None #return the max value?
+    else:
+        return 1000000 / mired_temperature
 
 
 def color_temperature_kelvin_to_mired(kelvin_temperature):
     """Convert degrees kelvin to mired shift."""
-    return 1000000 / kelvin_temperature
+    if kelvin_temperature==0:
+        return None #return the max value?
+    else:
+        return 1000000 / kelvin_temperature
